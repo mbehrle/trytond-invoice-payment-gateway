@@ -42,7 +42,7 @@ requires.append(
 setup(
     name='%s_%s' % (PREFIX, MODULE),
     version=info.get('version', '0.0.1'),
-    description="Tryton module for sale payment gateway",
+    description="Tryton module for invoice payment gateway integration",
     author="Openlabs Technologies & consulting (P) Limited",
     author_email='info@openlabs.co.in',
     url='http://www.openlabs.co.in',
