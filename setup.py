@@ -11,6 +11,13 @@ def read(fname):
     return open(os.path.join(os.path.dirname(__file__), fname)).read()
 
 
+def get_required_version(name):
+    return '%s >= %s.%s, < %s.%s' % (
+        name, major_version, minor_version,
+        major_version, minor_version + 1
+    )
+
+
 class SQLiteTest(Command):
     """
     Run the tests on SQLite
@@ -26,8 +33,7 @@ class SQLiteTest(Command):
         pass
 
     def run(self):
-        from trytond.config import CONFIG
-        CONFIG['db_type'] = 'sqlite'
+        os.environ['TRYTOND_DATABASE_URI'] = 'sqlite://'
         os.environ['DB_NAME'] = ':memory:'
 
         from tests import suite
@@ -100,7 +106,7 @@ setup(
     ],
     license='GPL-3',
     install_requires=requires,
-    tests_require=['proteus'],
+    tests_require=[get_required_version('proteus')],
     extras_require={
         'docs': ['sphinx', 'sphinx_rtd_theme'],
     },
