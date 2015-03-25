@@ -2,7 +2,7 @@
 """
     test_view_depends
 
-    :copyright: (c) 2014 by Openlabs Technologies & Consulting (P) Limited
+    :copyright: (c) 2014-2015 by Openlabs Technologies & Consulting (P) Limited
     :license: BSD, see LICENSE for more details.
 """
 import sys
@@ -30,7 +30,6 @@ class TestViewsDepends(unittest.TestCase):
         """
         trytond.tests.test_tryton.install_module('invoice_payment_gateway')
 
-    @unittest.skip("No views defined yet")
     def test0005views(self):
         '''
         Test views.
