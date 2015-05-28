@@ -247,8 +247,6 @@ class TestInvoice(unittest.TestCase):
 
         # This is required to successfully pay the invoices
         main_cash_account = self._get_account_by_kind('other')
-        main_cash_account.party_required = True
-        main_cash_account.save()
 
         self.Journal.write([self.cash_journal], {
             'debit_account': main_cash_account.id
