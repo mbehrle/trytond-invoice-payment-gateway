@@ -9,7 +9,7 @@
 from trytond.pool import PoolMeta, Pool
 from trytond.exceptions import UserError
 from trytond.model import fields, ModelView
-from trytond.pyson import Eval, Bool, And, Or, Id, Not
+from trytond.pyson import Eval, Bool, And, Or, Id, Not, If
 from trytond.transaction import Transaction
 from trytond.wizard import Wizard, StateView, StateTransition, Button
 
@@ -119,6 +119,17 @@ class PayInvoiceUsingTransactionStart(BaseCreditCardViewMixin, ModelView):
         }
     )
 
+    company = fields.Many2One(
+        'company.company', 'Company', readonly=True, required=True,
+        domain=[
+            ('id', If(Eval('context', {}).contains('company'), '=', '!='),
+                Eval('context', {}).get('company', -1)),
+        ],
+    )
+    credit_account = fields.Many2One(
+        'account.account', 'Credit Account', required=True
+    )
+
     @classmethod
     def __setup__(cls):
         super(PayInvoiceUsingTransactionStart, cls).__setup__()
@@ -152,6 +163,12 @@ class PayInvoiceUsingTransactionStart(BaseCreditCardViewMixin, ModelView):
         cls.swipe_data.states = {'invisible': INV}
         cls.swipe_data.depends = ['method']
 
+        cls.credit_account.domain = [
+            ('company', '=', Eval('company', -1)),
+            ('kind', 'in', cls._credit_account_domain())
+        ]
+        cls.credit_account.depends = ['company']
+
     def get_currency_digits(self, name):  # pragma: no cover
         return self.invoice.currency_digits if self.invoice else 2
 
@@ -168,6 +185,13 @@ class PayInvoiceUsingTransactionStart(BaseCreditCardViewMixin, ModelView):
                 'method': self.gateway.method,
             }
         return {}
+
+    @classmethod
+    def _credit_account_domain(cls):
+        """
+        Return a list of account kind
+        """
+        return ['receivable']
 
 
 class PayInvoiceUsingTransaction(Wizard):
@@ -190,7 +214,9 @@ class PayInvoiceUsingTransaction(Wizard):
 
         res = {
             'invoice': invoice.id,
+            'company': invoice.company.id,
             'party': invoice.party.id,
+            'credit_account': invoice.party.account_receivable.id,
             'owner': invoice.party.name,
             'currency_digits': invoice.currency_digits,
             'amount': invoice.amount_to_pay_today or invoice.amount_to_pay,
@@ -209,6 +235,7 @@ class PayInvoiceUsingTransaction(Wizard):
             origin='%s,%s' % (
                 self.start.invoice.__name__, self.start.invoice.id),
             party=self.start.party,
+            credit_account=self.start.credit_account,
             address=self.start.invoice.invoice_address,
             gateway=self.start.gateway,
             payment_profile=profile,

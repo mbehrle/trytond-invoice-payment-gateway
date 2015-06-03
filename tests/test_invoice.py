@@ -247,8 +247,6 @@ class TestInvoice(unittest.TestCase):
 
         # This is required to successfully pay the invoices
         main_cash_account = self._get_account_by_kind('other')
-        main_cash_account.party_required = True
-        main_cash_account.save()
 
         self.Journal.write([self.cash_journal], {
             'debit_account': main_cash_account.id
@@ -372,6 +370,8 @@ class TestInvoice(unittest.TestCase):
 
                 pay_wizard.start.invoice = defaults['invoice']
                 pay_wizard.start.party = defaults['party']
+                pay_wizard.start.company = defaults['company']
+                pay_wizard.start.credit_account = defaults['credit_account']
                 pay_wizard.start.owner = defaults['owner']
                 pay_wizard.start.currency_digits = defaults['currency_digits']
                 pay_wizard.start.amount = defaults['amount']
@@ -412,6 +412,8 @@ class TestInvoice(unittest.TestCase):
 
                 pay_wizard.start.invoice = defaults['invoice']
                 pay_wizard.start.party = defaults['party']
+                pay_wizard.start.company = defaults['company']
+                pay_wizard.start.credit_account = defaults['credit_account']
                 pay_wizard.start.owner = defaults['owner']
                 pay_wizard.start.currency_digits = defaults['currency_digits']
                 pay_wizard.start.amount = defaults['amount']
@@ -456,6 +458,8 @@ class TestInvoice(unittest.TestCase):
 
                 pay_wizard.start.invoice = defaults['invoice']
                 pay_wizard.start.party = defaults['party']
+                pay_wizard.start.company = defaults['company']
+                pay_wizard.start.credit_account = defaults['credit_account']
                 pay_wizard.start.owner = defaults['owner']
                 pay_wizard.start.currency_digits = defaults['currency_digits']
                 pay_wizard.start.amount = defaults['amount']
