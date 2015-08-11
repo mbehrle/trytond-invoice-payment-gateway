@@ -57,9 +57,9 @@ minor_version = int(minor_version)
 requires = []
 
 MODULE = 'invoice_payment_gateway'
-PREFIX = 'openlabs'
+PREFIX = 'fio'
 MODULE2PREFIX = {
-    'payment_gateway': 'openlabs',
+    'payment_gateway': 'fio',
 }
 
 for dep in info.get('depends', []):
@@ -79,9 +79,9 @@ setup(
     name='%s_%s' % (PREFIX, MODULE),
     version=info.get('version', '0.0.1'),
     description="Tryton module for invoice payment gateway integration",
-    author="Openlabs Technologies & consulting (P) Limited",
-    author_email='info@openlabs.co.in',
-    url='http://www.openlabs.co.in',
+    author="Fulfil.IO INC.",
+    author_email='support@fulfil.io',
+    url='https://www.fulfil.io',
     package_dir={'trytond.modules.%s' % MODULE: '.'},
     packages=[
         'trytond.modules.%s' % MODULE,
@@ -97,14 +97,14 @@ setup(
         'Development Status :: 4 - Beta',
         'Environment :: Plugins',
         'Intended Audience :: Developers',
-        'License :: OSI Approved :: GNU General Public License v3 (GPLv3)',
+        'License :: OSI Approved :: BSD License',
         'Natural Language :: English',
         'Operating System :: OS Independent',
         'Programming Language :: Python',
         'Framework :: Tryton',
         'Topic :: Office/Business',
     ],
-    license='GPL-3',
+    license='BSD',
     install_requires=requires,
     tests_require=[get_required_version('proteus')],
     extras_require={
