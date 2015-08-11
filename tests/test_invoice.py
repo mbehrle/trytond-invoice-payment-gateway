@@ -1,10 +1,4 @@
 # -*- coding: utf-8 -*-
-"""
-    test_invoice.py
-    TestInvoice
-    :copyright: (c) 2015 by Openlabs Technologies & Consulting (P) Limited
-    :license: BSD, see LICENSE for more details.
-"""
 import unittest
 import datetime
 from decimal import Decimal
