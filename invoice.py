@@ -174,10 +174,7 @@ class PayInvoiceUsingTransactionStart(BaseCreditCardViewMixin, ModelView):
     @fields.depends('gateway')
     def on_change_gateway(self):  # pragma: no cover
         if self.gateway:
-            return {
-                'method': self.gateway.method,
-            }
-        return {}
+            self.method = self.gateway.method or None
 
     @classmethod
     def _credit_account_domain(cls):
