@@ -46,6 +46,10 @@ msgctxt "field:account.invoice.pay_using_transaction.start,invoice:"
 msgid "Invoice"
 msgstr "Rechnung"
 
+msgctxt "field:account.invoice.pay_using_transaction.start,invoice_type:"
+msgid "Invoice Type"
+msgstr "Rechnungstyp"
+
 msgctxt "field:account.invoice.pay_using_transaction.start,method:"
 msgid "Payment Gateway Method"
 msgstr "Zahlungsgatewaymethode"
@@ -73,6 +77,10 @@ msgstr "Beleg-Nr."
 msgctxt "field:account.invoice.pay_using_transaction.start,swipe_data:"
 msgid "Swipe Card"
 msgstr "Karte durchziehen"
+
+msgctxt "field:account.invoice.pay_using_transaction.start,transaction:"
+msgid "Transaction"
+msgstr "Transaktion"
 
 msgctxt "field:account.invoice.pay_using_transaction.start,use_existing_card:"
 msgid "Use existing Card?"
