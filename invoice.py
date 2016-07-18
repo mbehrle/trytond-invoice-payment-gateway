@@ -10,7 +10,7 @@ from trytond.modules.payment_gateway.transaction import BaseCreditCardViewMixin
 
 __all__ = [
     'Invoice', 'PayInvoiceUsingTransactionStart', 'PayInvoiceUsingTransaction',
-    'PaymentTransaction'
+    'PaymentTransaction', 'PayInvoiceUsingTransactionFailed'
 ]
 __metaclass__ = PoolMeta
 
@@ -215,6 +215,13 @@ class PayInvoiceUsingTransactionStart(BaseCreditCardViewMixin, ModelView):
         ]
 
 
+class PayInvoiceUsingTransactionFailed(ModelView):
+    'Pay using Transaction Wizard'
+    __name__ = 'account.invoice.pay_using_transaction.failed'
+
+    message = fields.Text("Message", readonly=True)
+
+
 class PayInvoiceUsingTransaction(Wizard):
     'Pay using Transaction Wizard'
     __name__ = 'account.invoice.pay_using_transaction'
@@ -227,6 +234,13 @@ class PayInvoiceUsingTransaction(Wizard):
         ]
     )
     pay = StateTransition()
+    failed = StateView(
+        'account.invoice.pay_using_transaction.failed',
+        'invoice_payment_gateway.pay_using_transaction_failed_view_form',
+        [
+            Button('Ok', 'end', 'tryton-ok'),
+        ]
+    )
 
     def default_start(self, field=None):
         Invoice = Pool().get('account.invoice')
@@ -311,17 +325,32 @@ class PayInvoiceUsingTransaction(Wizard):
 
             # Capture Transaction
             PaymentTransaction.capture([transaction])
-            # Pay invoice using above captured transaction
-            self.start.invoice.pay_using_transaction(transaction)
+            if transaction.state == 'completed':
+                # Pay invoice using above captured transaction
+                self.start.invoice.pay_using_transaction(transaction)
+            else:
+                self.failed.message = \
+                    "Payment capture failed, refer transaction logs"
+                return 'failed'
 
         elif self.start.invoice_type == 'out_credit_note':
             refund_transaction = self.start.transaction.create_refund(
                 self.start.amount
             )
             PaymentTransaction.refund([refund_transaction])
-            self.start.invoice.pay_using_transaction(refund_transaction)
+            if refund_transaction.state == 'completed':
+                self.start.invoice.pay_using_transaction(refund_transaction)
+            else:
+                self.failed.message = \
+                    "Payment refund failed, refer transaction logs"
+                return 'failed'
 
         return 'end'
+
+    def default_failed(self, data):  # pragma: nocover
+        return {
+            'message': self.failed.message,
+        }
 
 
 class PaymentTransaction:
