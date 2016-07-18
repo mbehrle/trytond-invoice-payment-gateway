@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 from trytond.pool import Pool
 from invoice import Invoice, PayInvoiceUsingTransactionStart, \
-    PayInvoiceUsingTransaction, PaymentTransaction
+    PayInvoiceUsingTransaction, PaymentTransaction, \
+    PayInvoiceUsingTransactionFailed
 
 
 def register():
@@ -9,6 +10,7 @@ def register():
         Invoice,
         PaymentTransaction,
         PayInvoiceUsingTransactionStart,
+        PayInvoiceUsingTransactionFailed,
         module='invoice_payment_gateway', type_='model'
     )
     Pool.register(
