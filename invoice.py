@@ -325,7 +325,7 @@ class PayInvoiceUsingTransaction(Wizard):
 
             # Capture Transaction
             PaymentTransaction.capture([transaction])
-            if transaction.state == 'completed':
+            if transaction.state in ('completed', 'posted'):
                 # Pay invoice using above captured transaction
                 self.start.invoice.pay_using_transaction(transaction)
             else:
@@ -338,7 +338,7 @@ class PayInvoiceUsingTransaction(Wizard):
                 self.start.amount
             )
             PaymentTransaction.refund([refund_transaction])
-            if refund_transaction.state == 'completed':
+            if refund_transaction.state in ('completed', 'posted'):
                 self.start.invoice.pay_using_transaction(refund_transaction)
             else:
                 self.failed.message = \
