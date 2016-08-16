@@ -150,7 +150,7 @@ class PayInvoiceUsingTransactionStart(BaseCreditCardViewMixin, ModelView):
             'required': And(
                 ~Bool(Eval('use_existing_card')),
                 Eval('method') == 'credit_card',
-                Eval('invoice_type') == 'out_invoice',
+                Eval('invoice_type') == 'out',
             ),
             'invisible': INV
         }
@@ -205,14 +205,13 @@ class PayInvoiceUsingTransactionStart(BaseCreditCardViewMixin, ModelView):
     def view_attributes(cls):
         return [(
             '//group[@id="charge"]', 'states', {
-                'invisible': Eval('invoice_type') != 'out_invoice',
-                }
-            ), (
+                'invisible': Eval('invoice_type') != 'out',
+            }
+        ), (
                 '//group[@id="refund"]', 'states', {
                     'invisible': Eval('invoice_type') != 'out_credit_note',
                 }
-            )
-        ]
+        )]
 
 
 class PayInvoiceUsingTransactionFailed(ModelView):
@@ -313,7 +312,7 @@ class PayInvoiceUsingTransaction(Wizard):
         """
         PaymentTransaction = Pool().get('payment_gateway.transaction')
 
-        if self.start.invoice_type == 'out_invoice':
+        if self.start.invoice_type == 'out':
             profile = self.start.payment_profile
             if self.start.method == 'credit_card' and (
                 not self.start.use_existing_card

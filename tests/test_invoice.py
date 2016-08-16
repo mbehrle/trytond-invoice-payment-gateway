@@ -5,23 +5,26 @@ from decimal import Decimal
 from dateutil.relativedelta import relativedelta
 
 import trytond.tests.test_tryton
-from trytond.tests.test_tryton import POOL, DB_NAME, USER, CONTEXT
+from trytond.tests.test_tryton import (
+    POOL, USER, CONTEXT,
+    with_transaction, ModuleTestCase
+)
 from trytond.transaction import Transaction
 from trytond.pyson import Eval
 
 
-class TestInvoice(unittest.TestCase):
+class TestInvoice(ModuleTestCase):
     """
     Invoice tests
     """
+
+    module = 'invoice_payment_gateway'
 
     def setUp(self):
         """
         Set up data used in the tests.
         this method is called before each test function execution.
         """
-        trytond.tests.test_tryton.install_module('invoice_payment_gateway')
-
         self.Currency = POOL.get('currency.currency')
         self.Company = POOL.get('company.company')
         self.Party = POOL.get('party.party')
@@ -174,7 +177,7 @@ class TestInvoice(unittest.TestCase):
         with Transaction().set_context(company=self.company.id):
             invoice, = self.Invoice.create([{
                 'party': party,
-                'type': 'out_invoice',
+                'type': 'out',
                 'journal': self.journal,
                 'invoice_address': self.party.address_get(
                     'invoice'),
@@ -306,7 +309,7 @@ class TestInvoice(unittest.TestCase):
             'type': 'goods',
             'list_price': Decimal('10'),
             'cost_price': Decimal('5'),
-            'category': self.product_category.id,
+            'categories': [('add', [self.product_category.id])],
             'default_uom': self.uom,
             'account_revenue': self._get_account_by_kind(
                 'revenue', company=self.company.id).id,
@@ -341,138 +344,138 @@ class TestInvoice(unittest.TestCase):
             'method': 'manual',
         }])
 
+    @with_transaction()
     def test_0010_test_paying_invoice_with_cash(self):
         """
         Create and pay an invoice using payment transaction
         """
-        with Transaction().start(DB_NAME, USER, context=CONTEXT):
-            self.setup_defaults()
+        self.setup_defaults()
 
-            invoice = self.create_and_post_invoice(self.party)
+        invoice = self.create_and_post_invoice(self.party)
 
-            self.assertTrue(invoice)
-            self.assertEqual(invoice.state, 'posted')
-            self.assertTrue(invoice.amount_to_pay)
+        self.assertTrue(invoice)
+        self.assertEqual(invoice.state, 'posted')
+        self.assertTrue(invoice.amount_to_pay)
 
-            # Pay invoice using cash transaction
-            Wizard = POOL.get(
-                'account.invoice.pay_using_transaction', type='wizard'
-            )
-            with Transaction().set_context(active_id=invoice.id):
-                pay_wizard = Wizard(Wizard.create()[0])
-                defaults = pay_wizard.default_start()
+        # Pay invoice using cash transaction
+        Wizard = POOL.get(
+            'account.invoice.pay_using_transaction', type='wizard'
+        )
+        with Transaction().set_context(active_id=invoice.id):
+            pay_wizard = Wizard(Wizard.create()[0])
+            defaults = pay_wizard.default_start()
 
-                pay_wizard.start.invoice = defaults['invoice']
-                pay_wizard.start.party = defaults['party']
-                pay_wizard.start.company = defaults['company']
-                pay_wizard.start.credit_account = defaults['credit_account']
-                pay_wizard.start.owner = defaults['owner']
-                pay_wizard.start.currency_digits = defaults['currency_digits']
-                pay_wizard.start.amount = defaults['amount']
-                pay_wizard.start.user = defaults['user']
-                pay_wizard.start.gateway = self.cash_gateway.id
-                pay_wizard.start.payment_profile = None
-                pay_wizard.start.reference = 'Test paying with cash'
-                pay_wizard.start.method = self.cash_gateway.method
-                pay_wizard.start.invoice_type = invoice.type
+            pay_wizard.start.invoice = defaults['invoice']
+            pay_wizard.start.party = defaults['party']
+            pay_wizard.start.company = defaults['company']
+            pay_wizard.start.credit_account = defaults['credit_account']
+            pay_wizard.start.owner = defaults['owner']
+            pay_wizard.start.currency_digits = defaults['currency_digits']
+            pay_wizard.start.amount = defaults['amount']
+            pay_wizard.start.user = defaults['user']
+            pay_wizard.start.gateway = self.cash_gateway.id
+            pay_wizard.start.payment_profile = None
+            pay_wizard.start.reference = 'Test paying with cash'
+            pay_wizard.start.method = self.cash_gateway.method
+            pay_wizard.start.invoice_type = invoice.type
 
-                with Transaction().set_context(company=self.company.id):
-                    pay_wizard.transition_pay()
+            with Transaction().set_context(company=self.company.id):
+                pay_wizard.transition_pay()
 
-            self.assertEqual(invoice.state, 'paid')
-            self.assertFalse(invoice.amount_to_pay)
+        self.assertEqual(invoice.state, 'paid')
+        self.assertFalse(invoice.amount_to_pay)
 
+    @with_transaction()
     def test_0020_test_paying_invoice_with_new_credit_card(self):
         """
         Create and pay an invoice using payment transaction
         """
         Date = POOL.get('ir.date')
 
-        with Transaction().start(DB_NAME, USER, context=CONTEXT):
-            self.setup_defaults()
+        self.setup_defaults()
 
-            invoice = self.create_and_post_invoice(self.party)
+        invoice = self.create_and_post_invoice(self.party)
 
-            self.assertTrue(invoice)
-            self.assertEqual(invoice.state, 'posted')
-            self.assertTrue(invoice.amount_to_pay)
+        self.assertTrue(invoice)
+        self.assertEqual(invoice.state, 'posted')
+        self.assertTrue(invoice.amount_to_pay)
 
-            # Pay invoice using cash transaction
-            Wizard = POOL.get(
-                'account.invoice.pay_using_transaction', type='wizard'
-            )
-            with Transaction().set_context(active_id=invoice.id):
-                pay_wizard = Wizard(Wizard.create()[0])
-                defaults = pay_wizard.default_start()
+        # Pay invoice using cash transaction
+        Wizard = POOL.get(
+            'account.invoice.pay_using_transaction', type='wizard'
+        )
+        with Transaction().set_context(active_id=invoice.id):
+            pay_wizard = Wizard(Wizard.create()[0])
+            defaults = pay_wizard.default_start()
 
-                pay_wizard.start.invoice = defaults['invoice']
-                pay_wizard.start.party = defaults['party']
-                pay_wizard.start.company = defaults['company']
-                pay_wizard.start.credit_account = defaults['credit_account']
-                pay_wizard.start.owner = defaults['owner']
-                pay_wizard.start.currency_digits = defaults['currency_digits']
-                pay_wizard.start.amount = defaults['amount']
-                pay_wizard.start.user = defaults['user']
-                pay_wizard.start.gateway = self.dummy_gateway.id
-                pay_wizard.start.payment_profile = None
-                pay_wizard.start.reference = 'Test paying with cash'
-                pay_wizard.start.method = self.dummy_gateway.method
-                pay_wizard.start.use_existing_card = False
-                pay_wizard.start.number = '4111111111111111'
-                pay_wizard.start.expiry_month = '05'
-                pay_wizard.start.expiry_year = '%s' % (Date.today().year + 3)
-                pay_wizard.start.csc = '435'
-                pay_wizard.start.provider = self.dummy_gateway.provider
-                pay_wizard.start.invoice_type = invoice.type
+            pay_wizard.start.invoice = defaults['invoice']
+            pay_wizard.start.party = defaults['party']
+            pay_wizard.start.company = defaults['company']
+            pay_wizard.start.credit_account = defaults['credit_account']
+            pay_wizard.start.owner = defaults['owner']
+            pay_wizard.start.currency_digits = defaults['currency_digits']
+            pay_wizard.start.amount = defaults['amount']
+            pay_wizard.start.user = defaults['user']
+            pay_wizard.start.gateway = self.dummy_gateway.id
+            pay_wizard.start.payment_profile = None
+            pay_wizard.start.reference = 'Test paying with cash'
+            pay_wizard.start.method = self.dummy_gateway.method
+            pay_wizard.start.use_existing_card = False
+            pay_wizard.start.number = '4111111111111111'
+            pay_wizard.start.expiry_month = '05'
+            pay_wizard.start.expiry_year = '%s' % (Date.today().year + 3)
+            pay_wizard.start.csc = '435'
+            pay_wizard.start.provider = self.dummy_gateway.provider
+            pay_wizard.start.invoice_type = invoice.type
 
-                with Transaction().set_context(company=self.company.id):
-                    pay_wizard.transition_pay()
+            with Transaction().set_context(company=self.company.id):
+                pay_wizard.transition_pay()
 
-            self.assertEqual(invoice.state, 'paid')
-            self.assertFalse(invoice.amount_to_pay)
+        self.assertEqual(invoice.state, 'paid')
+        self.assertFalse(invoice.amount_to_pay)
 
+    @with_transaction()
     def test_0030_test_paying_invoice_with_saved_credit_card(self):
         """
         Create and pay an invoice using payment transaction
         """
-        with Transaction().start(DB_NAME, USER, context=CONTEXT):
-            self.setup_defaults()
+        self.setup_defaults()
 
-            invoice = self.create_and_post_invoice(self.party)
+        invoice = self.create_and_post_invoice(self.party)
 
-            self.assertTrue(invoice)
-            self.assertEqual(invoice.state, 'posted')
-            self.assertTrue(invoice.amount_to_pay)
+        self.assertTrue(invoice)
+        self.assertEqual(invoice.state, 'posted')
+        self.assertTrue(invoice.amount_to_pay)
 
-            # Pay invoice using cash transaction
-            Wizard = POOL.get(
-                'account.invoice.pay_using_transaction', type='wizard'
-            )
-            with Transaction().set_context(active_id=invoice.id):
-                pay_wizard = Wizard(Wizard.create()[0])
-                defaults = pay_wizard.default_start()
+        # Pay invoice using cash transaction
+        Wizard = POOL.get(
+            'account.invoice.pay_using_transaction', type='wizard'
+        )
+        with Transaction().set_context(active_id=invoice.id):
+            pay_wizard = Wizard(Wizard.create()[0])
+            defaults = pay_wizard.default_start()
 
-                pay_wizard.start.invoice = defaults['invoice']
-                pay_wizard.start.party = defaults['party']
-                pay_wizard.start.company = defaults['company']
-                pay_wizard.start.credit_account = defaults['credit_account']
-                pay_wizard.start.owner = defaults['owner']
-                pay_wizard.start.currency_digits = defaults['currency_digits']
-                pay_wizard.start.amount = defaults['amount']
-                pay_wizard.start.user = defaults['user']
-                pay_wizard.start.gateway = self.dummy_gateway.id
-                pay_wizard.start.payment_profile = \
-                    self.dummy_cc_payment_profile.id
-                pay_wizard.start.reference = 'Test paying with cash'
-                pay_wizard.start.method = self.dummy_gateway.method
-                pay_wizard.start.use_existing_card = True
-                pay_wizard.start.invoice_type = invoice.type
+            pay_wizard.start.invoice = defaults['invoice']
+            pay_wizard.start.party = defaults['party']
+            pay_wizard.start.company = defaults['company']
+            pay_wizard.start.credit_account = defaults['credit_account']
+            pay_wizard.start.owner = defaults['owner']
+            pay_wizard.start.currency_digits = defaults['currency_digits']
+            pay_wizard.start.amount = defaults['amount']
+            pay_wizard.start.user = defaults['user']
+            pay_wizard.start.gateway = self.dummy_gateway.id
+            pay_wizard.start.payment_profile = \
+                self.dummy_cc_payment_profile.id
+            pay_wizard.start.reference = 'Test paying with cash'
+            pay_wizard.start.method = self.dummy_gateway.method
+            pay_wizard.start.use_existing_card = True
+            pay_wizard.start.invoice_type = invoice.type
 
-                with Transaction().set_context(company=self.company.id):
-                    pay_wizard.transition_pay()
+            with Transaction().set_context(company=self.company.id):
+                pay_wizard.transition_pay()
 
-            self.assertEqual(invoice.state, 'paid')
-            self.assertFalse(invoice.amount_to_pay)
+        self.assertEqual(invoice.state, 'paid')
+        self.assertFalse(invoice.amount_to_pay)
 
 
 def suite():
