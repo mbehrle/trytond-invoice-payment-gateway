@@ -10,7 +10,7 @@ from trytond.modules.payment_gateway.transaction import BaseCreditCardViewMixin
 
 __all__ = [
     'Invoice', 'PayInvoiceUsingTransactionStart', 'PayInvoiceUsingTransaction',
-    'PaymentTransaction'
+    'PaymentTransaction', 'PayInvoiceUsingTransactionFailed'
 ]
 __metaclass__ = PoolMeta
 
@@ -68,6 +68,9 @@ class PayInvoiceUsingTransactionStart(BaseCreditCardViewMixin, ModelView):
     invoice = fields.Many2One(
         'account.invoice', 'Invoice', required=True, readonly=True
     )
+    invoice_type = fields.Function(
+        fields.Char("Invoice Type"), "on_change_with_invoice_type"
+    )
     party = fields.Many2One('party.party', 'Party', readonly=True)
     gateway = fields.Many2One(
         'payment_gateway.gateway', 'Gateway', required=True,
@@ -122,6 +125,15 @@ class PayInvoiceUsingTransactionStart(BaseCreditCardViewMixin, ModelView):
     credit_account = fields.Many2One(
         'account.account', 'Credit Account', required=True
     )
+    transaction = fields.Many2One(
+        'payment_gateway.transaction', "Transaction", domain=[
+            ('party', '=', Eval('party')),
+            ('gateway', '=', Eval('gateway')),
+        ], states={
+            'required': Eval('invoice_type') == 'out_credit_note',
+            'invisible': Eval('invoice_type') != 'out_credit_note'
+        }, depends=['party', 'invoice_type', 'gateway']
+    )
 
     @classmethod
     def __setup__(cls):
@@ -137,11 +149,12 @@ class PayInvoiceUsingTransactionStart(BaseCreditCardViewMixin, ModelView):
         STATE1 = {
             'required': And(
                 ~Bool(Eval('use_existing_card')),
-                Eval('method') == 'credit_card'
+                Eval('method') == 'credit_card',
+                Eval('invoice_type') == 'out',
             ),
             'invisible': INV
         }
-        DEPENDS = ['use_existing_card', 'method']
+        DEPENDS = ['use_existing_card', 'method', 'invoice_type']
 
         cls.owner.states.update(STATE1)
         cls.owner.depends.extend(DEPENDS)
@@ -176,12 +189,36 @@ class PayInvoiceUsingTransactionStart(BaseCreditCardViewMixin, ModelView):
         if self.gateway:
             self.method = self.gateway.method or None
 
+    @fields.depends('invoice')
+    def on_change_with_invoice_type(self, name=None):
+        if self.invoice:
+            return self.invoice.type
+
     @classmethod
     def _credit_account_domain(cls):
         """
         Return a list of account kind
         """
         return ['receivable']
+
+    @classmethod
+    def view_attributes(cls):
+        return [(
+            '//group[@id="charge"]', 'states', {
+                'invisible': Eval('invoice_type') != 'out',
+            }
+        ), (
+                '//group[@id="refund"]', 'states', {
+                    'invisible': Eval('invoice_type') != 'out_credit_note',
+                }
+        )]
+
+
+class PayInvoiceUsingTransactionFailed(ModelView):
+    'Pay using Transaction Wizard'
+    __name__ = 'account.invoice.pay_using_transaction.failed'
+
+    message = fields.Text("Message", readonly=True)
 
 
 class PayInvoiceUsingTransaction(Wizard):
@@ -196,6 +233,13 @@ class PayInvoiceUsingTransaction(Wizard):
         ]
     )
     pay = StateTransition()
+    failed = StateView(
+        'account.invoice.pay_using_transaction.failed',
+        'invoice_payment_gateway.pay_using_transaction_failed_view_form',
+        [
+            Button('Ok', 'end', 'tryton-ok'),
+        ]
+    )
 
     def default_start(self, field=None):
         Invoice = Pool().get('account.invoice')
@@ -211,6 +255,7 @@ class PayInvoiceUsingTransaction(Wizard):
             'currency_digits': invoice.currency_digits,
             'amount': invoice.amount_to_pay_today or invoice.amount_to_pay,
             'user': Transaction().user,
+            'invoice_type': invoice.type,
         }
         return res
 
@@ -267,20 +312,44 @@ class PayInvoiceUsingTransaction(Wizard):
         """
         PaymentTransaction = Pool().get('payment_gateway.transaction')
 
-        profile = self.start.payment_profile
-        if self.start.method == 'credit_card' and (
-            not self.start.use_existing_card
-        ):
-            profile = self.create_payment_profile()
+        if self.start.invoice_type == 'out':
+            profile = self.start.payment_profile
+            if self.start.method == 'credit_card' and (
+                not self.start.use_existing_card
+            ):
+                profile = self.create_payment_profile()
 
-        transaction = self.create_payment_transaction(profile=profile)
-        transaction.save()
+            transaction = self.create_payment_transaction(profile=profile)
+            transaction.save()
 
-        # Capture Transaction
-        PaymentTransaction.capture([transaction])
-        # Pay invoice using above captured transaction
-        self.start.invoice.pay_using_transaction(transaction)
+            # Capture Transaction
+            PaymentTransaction.capture([transaction])
+            if transaction.state in ('completed', 'posted'):
+                # Pay invoice using above captured transaction
+                self.start.invoice.pay_using_transaction(transaction)
+            else:
+                self.failed.message = \
+                    "Payment capture failed, refer transaction logs"
+                return 'failed'
+
+        elif self.start.invoice_type == 'out_credit_note':
+            refund_transaction = self.start.transaction.create_refund(
+                self.start.amount
+            )
+            PaymentTransaction.refund([refund_transaction])
+            if refund_transaction.state in ('completed', 'posted'):
+                self.start.invoice.pay_using_transaction(refund_transaction)
+            else:
+                self.failed.message = \
+                    "Payment refund failed, refer transaction logs"
+                return 'failed'
+
         return 'end'
+
+    def default_failed(self, data):  # pragma: nocover
+        return {
+            'message': self.failed.message,
+        }
 
 
 class PaymentTransaction:
