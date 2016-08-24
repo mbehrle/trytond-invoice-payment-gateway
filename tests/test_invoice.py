@@ -377,7 +377,7 @@ class TestInvoice(ModuleTestCase):
             pay_wizard.start.payment_profile = None
             pay_wizard.start.reference = 'Test paying with cash'
             pay_wizard.start.method = self.cash_gateway.method
-            pay_wizard.start.invoice_type = invoice.type
+            pay_wizard.start.transaction_type = defaults['transaction_type']
 
             with Transaction().set_context(company=self.company.id):
                 pay_wizard.transition_pay()
@@ -426,7 +426,7 @@ class TestInvoice(ModuleTestCase):
             pay_wizard.start.expiry_year = '%s' % (Date.today().year + 3)
             pay_wizard.start.csc = '435'
             pay_wizard.start.provider = self.dummy_gateway.provider
-            pay_wizard.start.invoice_type = invoice.type
+            pay_wizard.start.transaction_type = defaults['transaction_type']
 
             with Transaction().set_context(company=self.company.id):
                 pay_wizard.transition_pay()
@@ -469,7 +469,7 @@ class TestInvoice(ModuleTestCase):
             pay_wizard.start.reference = 'Test paying with cash'
             pay_wizard.start.method = self.dummy_gateway.method
             pay_wizard.start.use_existing_card = True
-            pay_wizard.start.invoice_type = invoice.type
+            pay_wizard.start.transaction_type = defaults['transaction_type']
 
             with Transaction().set_context(company=self.company.id):
                 pay_wizard.transition_pay()
