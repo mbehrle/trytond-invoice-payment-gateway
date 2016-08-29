@@ -68,8 +68,8 @@ class PayInvoiceUsingTransactionStart(BaseCreditCardViewMixin, ModelView):
     invoice = fields.Many2One(
         'account.invoice', 'Invoice', required=True, readonly=True
     )
-    invoice_type = fields.Function(
-        fields.Char("Invoice Type"), "on_change_with_invoice_type"
+    transaction_type = fields.Function(
+        fields.Char("Transaction Type"), "on_change_with_transaction_type"
     )
     party = fields.Many2One('party.party', 'Party', readonly=True)
     gateway = fields.Many2One(
@@ -130,9 +130,9 @@ class PayInvoiceUsingTransactionStart(BaseCreditCardViewMixin, ModelView):
             ('party', '=', Eval('party')),
             ('gateway', '=', Eval('gateway')),
         ], states={
-            'required': Eval('invoice_type') == 'out_credit_note',
-            'invisible': Eval('invoice_type') != 'out_credit_note'
-        }, depends=['party', 'invoice_type', 'gateway']
+            'required': Eval('transaction_type') == 'refund',
+            'invisible': Eval('transaction_type') != 'refund'
+        }, depends=['party', 'transaction_type', 'gateway']
     )
 
     @classmethod
@@ -150,11 +150,11 @@ class PayInvoiceUsingTransactionStart(BaseCreditCardViewMixin, ModelView):
             'required': And(
                 ~Bool(Eval('use_existing_card')),
                 Eval('method') == 'credit_card',
-                Eval('invoice_type') == 'out',
+                Eval('transaction_type') == 'charge',
             ),
             'invisible': INV
         }
-        DEPENDS = ['use_existing_card', 'method', 'invoice_type']
+        DEPENDS = ['use_existing_card', 'method', 'transaction_type']
 
         cls.owner.states.update(STATE1)
         cls.owner.depends.extend(DEPENDS)
@@ -190,9 +190,13 @@ class PayInvoiceUsingTransactionStart(BaseCreditCardViewMixin, ModelView):
             self.method = self.gateway.method or None
 
     @fields.depends('invoice')
-    def on_change_with_invoice_type(self, name=None):
+    def on_change_with_transaction_type(self, name=None):
+        "If the receivable today is positive, it's a charge else refund"
         if self.invoice:
-            return self.invoice.type
+            if self.invoice.amount_to_pay_today >= 0:
+                return 'charge'
+            else:
+                return 'refund'
 
     @classmethod
     def _credit_account_domain(cls):
@@ -205,11 +209,11 @@ class PayInvoiceUsingTransactionStart(BaseCreditCardViewMixin, ModelView):
     def view_attributes(cls):
         return [(
             '//group[@id="charge"]', 'states', {
-                'invisible': Eval('invoice_type') != 'out',
+                'invisible': Eval('transaction_type') != 'charge',
             }
         ), (
                 '//group[@id="refund"]', 'states', {
-                    'invisible': Eval('invoice_type') != 'out_credit_note',
+                    'invisible': Eval('transaction_type') != 'refund',
                 }
         )]
 
@@ -246,6 +250,11 @@ class PayInvoiceUsingTransaction(Wizard):
 
         invoice = Invoice(Transaction().context.get('active_id'))
 
+        if (invoice.amount_to_pay_today or invoice.amount_to_pay) >= 0:
+            transaction_type = 'charge'
+        else:
+            transaction_type = 'refund'
+
         res = {
             'invoice': invoice.id,
             'company': invoice.company.id,
@@ -255,7 +264,7 @@ class PayInvoiceUsingTransaction(Wizard):
             'currency_digits': invoice.currency_digits,
             'amount': invoice.amount_to_pay_today or invoice.amount_to_pay,
             'user': Transaction().user,
-            'invoice_type': invoice.type,
+            'transaction_type': transaction_type,
         }
         return res
 
@@ -312,7 +321,7 @@ class PayInvoiceUsingTransaction(Wizard):
         """
         PaymentTransaction = Pool().get('payment_gateway.transaction')
 
-        if self.start.invoice_type == 'out':
+        if self.start.transaction_type == 'charge':
             profile = self.start.payment_profile
             if self.start.method == 'credit_card' and (
                 not self.start.use_existing_card
@@ -332,7 +341,7 @@ class PayInvoiceUsingTransaction(Wizard):
                     "Payment capture failed, refer transaction logs"
                 return 'failed'
 
-        elif self.start.invoice_type == 'out_credit_note':
+        elif self.start.transaction_type == 'refund':
             refund_transaction = self.start.transaction.create_refund(
                 self.start.amount
             )
