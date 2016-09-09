@@ -262,7 +262,7 @@ class PayInvoiceUsingTransaction(Wizard):
             'credit_account': invoice.party.account_receivable.id,
             'owner': invoice.party.name,
             'currency_digits': invoice.currency_digits,
-            'amount': invoice.amount_to_pay_today or invoice.amount_to_pay,
+            'amount': abs(invoice.amount_to_pay_today or invoice.amount_to_pay),
             'user': Transaction().user,
             'transaction_type': transaction_type,
         }
@@ -283,7 +283,7 @@ class PayInvoiceUsingTransaction(Wizard):
             address=self.start.invoice.invoice_address,
             gateway=self.start.gateway,
             payment_profile=profile,
-            amount=self.start.amount,
+            amount=abs(self.start.amount),
             description=self.start.reference or None,
             date=Date.today(),
         )
