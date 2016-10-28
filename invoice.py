@@ -38,6 +38,9 @@ class Invoice:
         AccountMoveLine = Pool().get('account.move.line')
 
         for line in payment_transaction.move.lines:
+            if line.reconciliation:
+                continue
+
             if line.account == self.account:
                 self.write(
                     [self], {'payment_lines': [('add', [line.id])]}
