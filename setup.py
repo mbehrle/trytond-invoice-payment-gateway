@@ -57,9 +57,9 @@ minor_version = int(minor_version)
 requires = []
 
 MODULE = 'invoice_payment_gateway'
-PREFIX = 'fio'
+PREFIX = 'm9s'
 MODULE2PREFIX = {
-    'payment_gateway': 'fio',
+    'payment_gateway': 'm9s',
 }
 
 for dep in info.get('depends', []):
