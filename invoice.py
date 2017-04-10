@@ -3,6 +3,7 @@ from trytond.pool import PoolMeta, Pool
 from trytond.exceptions import UserError
 from trytond.model import fields, ModelView
 from trytond.pyson import Eval, Bool, And, Or, Id, Not, If
+from trytond.rpc import RPC
 from trytond.transaction import Transaction
 from trytond.wizard import Wizard, StateView, StateTransition, Button
 
@@ -28,6 +29,40 @@ class Invoice:
                     Id('account', 'group_account')),
             },
         })
+        cls.__rpc__.update({
+            'capture_and_pay_using_transaction': RPC(
+                readonly=False, instantiate=0
+            ),
+        })
+
+    def capture_and_pay_using_transaction(self, profile_id, gateway_id, amount):
+        """
+        Create a payment transaction, capture paymnet and then pay using
+        the transaction
+
+        :param profile_id: Payment profile id
+        :param gateway_id: Payment gateway id
+        :param amount: Amount to be deducted
+        """
+        PaymentTransaction = Pool().get('payment_gateway.transaction')
+        Date = Pool().get('ir.date')
+
+        transaction = PaymentTransaction(
+            party=self.party,
+            credit_account=self.party.account_receivable,
+            address=self.invoice_address,
+            gateway=gateway_id,
+            payment_profile=profile_id,
+            amount=amount,
+            description=self.description,
+            date=Date.today(),
+        )
+        transaction.save()
+        PaymentTransaction.capture([transaction])
+        if transaction.state in ('completed', 'posted'):
+            self.pay_using_transaction(transaction)
+        else:
+            self.raise_user_error('Payment capture failed')
 
     def pay_using_transaction(self, payment_transaction):
         """
