@@ -24,7 +24,10 @@ class Invoice:
         super(Invoice, cls).__setup__()
         cls._buttons.update({
             'pay_using_payment_transaction': {
-                'invisible': Eval('state') != 'posted',
+                'invisible': Or(
+                    Eval('state') != 'posted',
+                    Eval('type') == 'in',
+                ),
                 'readonly': ~Eval('groups', []).contains(
                     Id('account', 'group_account')),
             },
