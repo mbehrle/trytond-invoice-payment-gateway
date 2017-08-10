@@ -57,6 +57,7 @@ class Invoice:
             gateway=gateway_id,
             payment_profile=profile_id,
             amount=amount,
+            currency=self.currency,
             description=self.description,
             date=Date.today(),
         )
