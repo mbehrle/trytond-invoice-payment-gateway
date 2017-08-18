@@ -57,6 +57,7 @@ class Invoice:
             gateway=gateway_id,
             payment_profile=profile_id,
             amount=amount,
+            currency=self.currency,
             description=self.description,
             date=Date.today(),
         )
@@ -330,6 +331,7 @@ class PayInvoiceUsingTransaction(Wizard):
             gateway=self.start.gateway,
             payment_profile=profile,
             amount=abs(self.start.amount),
+            currency=self.start.invoice.currency,
             description=self.start.reference or None,
             date=Date.today(),
         )
