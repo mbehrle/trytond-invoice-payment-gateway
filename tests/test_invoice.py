@@ -42,6 +42,8 @@ class TestInvoice(ModuleTestCase):
         self.Subdivision = POOL.get('country.subdivision')
         self.Invoice = POOL.get('account.invoice')
         self.PaymentGateway = POOL.get('payment_gateway.gateway')
+        self.Sequence = POOL.get('ir.sequence')
+        self.AccountConfiguration = POOL.get('account.configuration')
 
     def _create_fiscal_year(self, date=None, company=None):
         """
@@ -344,6 +346,22 @@ class TestInvoice(ModuleTestCase):
             'method': 'manual',
         }])
 
+        # Create and set write-off journal
+        write_off_journal, = self.Journal.create([{
+            'name': 'Write-Off',
+            'type': 'write-off',
+            'credit_account': self._get_account_by_kind(
+                'revenue', company=self.company.id).id,
+            'debit_account': self._get_account_by_kind(
+                'expense', company=self.company.id).id,
+            'sequence': self.Sequence.search([
+                ('code', '=', 'account.journal')
+            ])[0].id
+        }])
+        account_config = self.AccountConfiguration(1)
+        account_config.write_off_journal = write_off_journal
+        account_config.save()
+
     @with_transaction()
     def test_0010_test_paying_invoice_with_cash(self):
         """
@@ -469,6 +487,76 @@ class TestInvoice(ModuleTestCase):
             pay_wizard.start.reference = 'Test paying with cash'
             pay_wizard.start.method = self.dummy_gateway.method
             pay_wizard.start.use_existing_card = True
+            pay_wizard.start.transaction_type = defaults['transaction_type']
+
+            with Transaction().set_context(company=self.company.id):
+                pay_wizard.transition_pay()
+
+        self.assertEqual(invoice.state, 'paid')
+        self.assertFalse(invoice.amount_to_pay)
+
+    @with_transaction()
+    def test_0040_test_paying_invoice_write_off(self):
+        """Test invoice pay logic with write-off.
+        """
+        self.setup_defaults()
+
+        account_config = self.AccountConfiguration(1)
+        self.assertEqual(
+            account_config.write_off_threshold, Decimal('0')
+        )
+
+        invoice = self.create_and_post_invoice(self.party)
+
+        self.assertTrue(invoice)
+        self.assertEqual(invoice.state, 'posted')
+        self.assertTrue(invoice.amount_to_pay)
+
+        # Pay invoice using cash transaction
+        Wizard = POOL.get(
+            'account.invoice.pay_using_transaction', type='wizard'
+        )
+        with Transaction().set_context(active_id=invoice.id):
+            pay_wizard = Wizard(Wizard.create()[0])
+            defaults = pay_wizard.default_start()
+
+            pay_wizard.start.invoice = defaults['invoice']
+            pay_wizard.start.party = defaults['party']
+            pay_wizard.start.company = defaults['company']
+            pay_wizard.start.credit_account = defaults['credit_account']
+            pay_wizard.start.owner = defaults['owner']
+            pay_wizard.start.currency_digits = defaults['currency_digits']
+            pay_wizard.start.amount = defaults['amount'] - Decimal('0.02')
+            pay_wizard.start.user = defaults['user']
+            pay_wizard.start.gateway = self.cash_gateway.id
+            pay_wizard.start.payment_profile = None
+            pay_wizard.start.reference = 'Test paying with cash'
+            pay_wizard.start.method = self.cash_gateway.method
+            pay_wizard.start.transaction_type = defaults['transaction_type']
+
+            with Transaction().set_context(company=self.company.id):
+                pay_wizard.transition_pay()
+
+        self.assertEqual(invoice.state, 'posted')
+        self.assertTrue(invoice.amount_to_pay)
+
+        # Set the write-off threshold and pay invoice again.
+        with Transaction().set_context(active_id=invoice.id):
+            pay_wizard = Wizard(Wizard.create()[0])
+            defaults = pay_wizard.default_start()
+
+            pay_wizard.start.invoice = defaults['invoice']
+            pay_wizard.start.party = defaults['party']
+            pay_wizard.start.company = defaults['company']
+            pay_wizard.start.credit_account = defaults['credit_account']
+            pay_wizard.start.owner = defaults['owner']
+            pay_wizard.start.currency_digits = defaults['currency_digits']
+            pay_wizard.start.amount = defaults['amount']
+            pay_wizard.start.user = defaults['user']
+            pay_wizard.start.gateway = self.cash_gateway.id
+            pay_wizard.start.payment_profile = None
+            pay_wizard.start.reference = 'Test paying with cash'
+            pay_wizard.start.method = self.cash_gateway.method
             pay_wizard.start.transaction_type = defaults['transaction_type']
 
             with Transaction().set_context(company=self.company.id):
