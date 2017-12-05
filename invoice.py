@@ -90,11 +90,17 @@ class Invoice:
                     [self], {'payment_lines': [('add', [line.id])]}
                 )
                 if abs(self.amount_to_pay) <= config.write_off_threshold:
-                    # Reconcile lines to pay and payment lines from transaction
+                    # Reconcile lines to pay and payment lines from transaction.
+                    # Write-off journal is required to write-off remaining
+                    # balance.
+                    if self.amount_to_pay != Decimal('0'):
+                        write_off_journal = config.write_off_journal
+                    else:
+                        write_off_journal = None
                     try:
                         AccountMoveLine.reconcile(
                             self.lines_to_pay + self.payment_lines,
-                            journal=config.write_off_journal,
+                            journal=write_off_journal,
                             date=Date.today()
                         )
                     except UserError:
