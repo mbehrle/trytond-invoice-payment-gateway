@@ -44,6 +44,7 @@ class TestInvoice(ModuleTestCase):
         self.PaymentGateway = POOL.get('payment_gateway.gateway')
         self.Sequence = POOL.get('ir.sequence')
         self.AccountConfiguration = POOL.get('account.configuration')
+        self.AccountMove = POOL.get('account.move')
 
     def _create_fiscal_year(self, date=None, company=None):
         """
@@ -541,6 +542,62 @@ class TestInvoice(ModuleTestCase):
         self.assertTrue(invoice.amount_to_pay)
 
         # Set the write-off threshold and pay invoice again.
+        account_config.write_off_threshold = Decimal('0.01')
+        account_config.save()
+
+        with Transaction().set_context(active_id=invoice.id):
+            pay_wizard = Wizard(Wizard.create()[0])
+            defaults = pay_wizard.default_start()
+
+            pay_wizard.start.invoice = defaults['invoice']
+            pay_wizard.start.party = defaults['party']
+            pay_wizard.start.company = defaults['company']
+            pay_wizard.start.credit_account = defaults['credit_account']
+            pay_wizard.start.owner = defaults['owner']
+            pay_wizard.start.currency_digits = defaults['currency_digits']
+            pay_wizard.start.amount = Decimal('0.01')
+            pay_wizard.start.user = defaults['user']
+            pay_wizard.start.gateway = self.cash_gateway.id
+            pay_wizard.start.payment_profile = None
+            pay_wizard.start.reference = 'Test paying with cash'
+            pay_wizard.start.method = self.cash_gateway.method
+            pay_wizard.start.transaction_type = defaults['transaction_type']
+
+            with Transaction().set_context(company=self.company.id):
+                pay_wizard.transition_pay()
+
+        self.assertEqual(invoice.state, 'paid')
+        self.assertFalse(invoice.amount_to_pay)
+
+        # There should be one journal entry on write-off journal
+        self.assertEqual(
+            self.AccountMove.search_count([
+                ('journal', '=', account_config.write_off_journal)
+            ]), 1
+        )
+
+    @with_transaction()
+    def test_0050_test_paying_invoice_write_off_zero_amount_moves(self):
+        """Paying invoice should not create zero amount write-off journal entry.
+        """
+        self.setup_defaults()
+
+        account_config = self.AccountConfiguration(1)
+        self.assertEqual(
+            account_config.write_off_threshold, Decimal('0')
+        )
+        self.assertTrue(account_config.write_off_journal)
+
+        invoice = self.create_and_post_invoice(self.party)
+
+        self.assertEqual(invoice.state, 'posted')
+        self.assertEqual(self.AccountMove.search_count([]), 1)
+        self.assertTrue(invoice.amount_to_pay)
+
+        # Pay invoice using cash transaction
+        Wizard = POOL.get(
+            'account.invoice.pay_using_transaction', type='wizard'
+        )
         with Transaction().set_context(active_id=invoice.id):
             pay_wizard = Wizard(Wizard.create()[0])
             defaults = pay_wizard.default_start()
@@ -563,7 +620,14 @@ class TestInvoice(ModuleTestCase):
                 pay_wizard.transition_pay()
 
         self.assertEqual(invoice.state, 'paid')
-        self.assertFalse(invoice.amount_to_pay)
+        self.assertEqual(self.AccountMove.search_count([]), 2)
+
+        # There should be no journal entries on write-off journal
+        self.assertEqual(
+            self.AccountMove.search_count([
+                ('journal', '=', account_config.write_off_journal)
+            ]), 0
+        )
 
 
 def suite():
