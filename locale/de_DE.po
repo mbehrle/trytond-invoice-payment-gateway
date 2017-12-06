@@ -2,6 +2,14 @@
 msgid ""
 msgstr "Content-Type: text/plain; charset=utf-8\n"
 
+msgctxt "field:account.configuration,write_off_journal:"
+msgid "Writeoff Journal"
+msgstr "Ausbuchungsjournal"
+
+msgctxt "field:account.configuration,write_off_threshold:"
+msgid "Writeoff Threshold"
+msgstr "Ausbuchungsdifferenz"
+
 msgctxt "field:account.invoice.pay_using_transaction.failed,id:"
 msgid "ID"
 msgstr "ID"
@@ -53,6 +61,10 @@ msgstr "ID"
 msgctxt "field:account.invoice.pay_using_transaction.start,invoice:"
 msgid "Invoice"
 msgstr "Rechnung"
+
+msgctxt "field:account.invoice.pay_using_transaction.start,invoice_type:"
+msgid "Invoice Type"
+msgstr "Rechnungstyp"
 
 msgctxt "field:account.invoice.pay_using_transaction.start,method:"
 msgid "Payment Gateway Method"
@@ -165,6 +177,10 @@ msgstr "11-November"
 msgctxt "selection:account.invoice.pay_using_transaction.start,expiry_month:"
 msgid "12-December"
 msgstr "12-Dezember"
+
+msgctxt "view:account.configuration:"
+msgid "Automatic Write Off"
+msgstr "Automatische Ausbuchung"
 
 msgctxt "view:account.invoice.pay_using_transaction.failed:"
 msgid "Failed"
