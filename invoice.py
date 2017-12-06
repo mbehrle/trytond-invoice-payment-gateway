@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+from decimal import Decimal
+
 from trytond.pool import PoolMeta, Pool
 from trytond.exceptions import UserError
 from trytond.model import fields, ModelView
@@ -74,8 +76,11 @@ class Invoice:
 
         :param payment_transaction: Active record of a payment transaction
         """
+        Date = Pool().get('ir.date')
         AccountMoveLine = Pool().get('account.move.line')
+        AccountConfiguration = Pool().get('account.configuration')
 
+        config = AccountConfiguration(1)
         for line in payment_transaction.move.lines:
             if line.reconciliation:
                 continue
@@ -84,11 +89,19 @@ class Invoice:
                 self.write(
                     [self], {'payment_lines': [('add', [line.id])]}
                 )
-                if self.amount_to_pay == 0:
-                    # Reconcile lines to pay and payment lines from transaction
+                if abs(self.amount_to_pay) <= config.write_off_threshold:
+                    # Reconcile lines to pay and payment lines from transaction.
+                    # Write-off journal is required to write-off remaining
+                    # balance.
+                    if self.amount_to_pay != Decimal('0'):
+                        write_off_journal = config.write_off_journal
+                    else:
+                        write_off_journal = None
                     try:
                         AccountMoveLine.reconcile(
-                            self.lines_to_pay + self.payment_lines
+                            self.lines_to_pay + self.payment_lines,
+                            journal=write_off_journal,
+                            date=Date.today()
                         )
                     except UserError:
                         # If reconcilation fails, do not raise the error
@@ -420,3 +433,19 @@ class PaymentTransaction:
 
         res.append('account.invoice')
         return res
+
+
+class AccountConfiguration:
+    __name__ = 'account.configuration'
+
+    write_off_journal = fields.Many2One(
+        'account.journal', 'Writeoff Journal',
+        domain=[('type', '=', 'write-off')]
+    )
+    write_off_threshold = fields.Numeric(
+        'Writeoff Threshold', required=True
+    )
+
+    @staticmethod
+    def default_write_off_threshold():
+        return Decimal('0')
