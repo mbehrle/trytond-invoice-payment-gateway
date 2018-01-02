@@ -86,9 +86,10 @@ class Invoice:
                 continue
 
             if line.account == self.account:
-                self.write(
-                    [self], {'payment_lines': [('add', [line.id])]}
-                )
+                if line not in self.payment_lines:
+                    self.write(
+                        [self], {'payment_lines': [('add', [line.id])]}
+                    )
                 if abs(self.amount_to_pay) <= config.write_off_threshold:
                     # Reconcile lines to pay and payment lines from transaction.
                     # Write-off journal is required to write-off remaining
@@ -107,7 +108,6 @@ class Invoice:
                         # If reconcilation fails, do not raise the error
                         pass
                 return line
-        raise Exception('Missing account')
 
     @classmethod
     @ModelView.button_action(
