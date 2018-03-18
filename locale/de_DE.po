@@ -62,10 +62,6 @@ msgctxt "field:account.invoice.pay_using_transaction.start,invoice:"
 msgid "Invoice"
 msgstr "Rechnung"
 
-msgctxt "field:account.invoice.pay_using_transaction.start,invoice_type:"
-msgid "Invoice Type"
-msgstr "Rechnungstyp"
-
 msgctxt "field:account.invoice.pay_using_transaction.start,method:"
 msgid "Payment Gateway Method"
 msgstr "Zahlungsgatewaymethode"
